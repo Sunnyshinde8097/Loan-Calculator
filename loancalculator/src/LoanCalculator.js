@@ -9,6 +9,9 @@ const LoanCalculator = () => {
   const [emi, setEmi] = useState(null);
   const [totalPayment, setTotalPayment] = useState(null);
   const [monthlyBreakdown, setMonthlyBreakdown] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const rowsPerPage = 12; // show 12 months per page
 
   const calculateLoan = () => {
     const principal = parseFloat(loanAmount);
@@ -29,7 +32,6 @@ const LoanCalculator = () => {
     setEmi(emiValue.toFixed(2));
     setTotalPayment(total.toFixed(2));
 
-    // 🔹 Calculate monthly principal + interest breakdown
     let balance = principal;
     let breakdown = [];
 
@@ -47,39 +49,56 @@ const LoanCalculator = () => {
     }
 
     setMonthlyBreakdown(breakdown);
+    setCurrentPage(1); // reset to first page
   };
+
+  // Pagination logic
+  const indexOfLastRow = currentPage * rowsPerPage;
+  const indexOfFirstRow = indexOfLastRow - rowsPerPage;
+  const currentRows = monthlyBreakdown.slice(indexOfFirstRow, indexOfLastRow);
+  const totalPages = Math.ceil(monthlyBreakdown.length / rowsPerPage);
 
   return (
     <div className="d-flex align-items-center justify-content-center vh-100">
       <div className="calculator-card text-center">
         <h1 className="fw-bold mb-4">🏦 Loan Calculator</h1>
 
+        {/* Inputs */}
         <div className="row mb-3">
           <div className="col-md-4 mb-2">
             <input
-              type="number"
+              type="text"
               className="form-control"
               placeholder="Loan Amount (₹)"
               value={loanAmount}
-              onChange={(e) => setLoanAmount(e.target.value)}
+              onChange={(e) => {
+                const value = e.target.value;
+                if (/^\d*$/.test(value)) setLoanAmount(value);
+              }}
             />
           </div>
           <div className="col-md-4 mb-2">
             <input
-              type="number"
+              type="text"
               className="form-control"
               placeholder="Interest Rate (%)"
               value={interestRate}
-              onChange={(e) => setInterestRate(e.target.value)}
+              onChange={(e) => {
+                const value = e.target.value;
+                if (/^\d*\.?\d*$/.test(value)) setInterestRate(value);
+              }}
             />
           </div>
           <div className="col-md-4 mb-2">
             <input
-              type="number"
+              type="text"
               className="form-control"
               placeholder="Tenure (Years)"
               value={tenure}
-              onChange={(e) => setTenure(e.target.value)}
+              onChange={(e) => {
+                const value = e.target.value;
+                if (/^\d*$/.test(value)) setTenure(value);
+              }}
             />
           </div>
         </div>
@@ -88,17 +107,15 @@ const LoanCalculator = () => {
           Calculate EMI
         </button>
 
+        {/* Results */}
         {emi && (
           <div className="result-box alert alert-info mt-4">
-            <p className="mb-1">
-              Monthly EMI: <strong>₹{emi}</strong>
-            </p>
-            <p>
-              Total Payment: <strong>₹{totalPayment}</strong>
-            </p>
+            <p className="mb-1">Monthly EMI: <strong>₹{emi}</strong></p>
+            <p>Total Payment: <strong>₹{totalPayment}</strong></p>
           </div>
         )}
 
+        {/* Breakdown with Pagination */}
         {monthlyBreakdown.length > 0 && (
           <div className="mt-4">
             <h4>📊 Monthly Breakdown</h4>
@@ -112,7 +129,7 @@ const LoanCalculator = () => {
                 </tr>
               </thead>
               <tbody>
-                {monthlyBreakdown.map((row) => (
+                {currentRows.map((row) => (
                   <tr key={row.month}>
                     <td>{row.month}</td>
                     <td>{row.principal}</td>
@@ -122,6 +139,29 @@ const LoanCalculator = () => {
                 ))}
               </tbody>
             </table>
+
+            {/* Pagination Controls */}
+            <nav>
+              <ul className="pagination justify-content-center">
+                <li className={`page-item ${currentPage === 1 ? "disabled" : ""}`}>
+                  <button className="page-link" onClick={() => setCurrentPage(currentPage - 1)}>
+                    Previous
+                  </button>
+                </li>
+                {[...Array(totalPages)].map((_, i) => (
+                  <li key={i} className={`page-item ${currentPage === i + 1 ? "active" : ""}`}>
+                    <button className="page-link" onClick={() => setCurrentPage(i + 1)}>
+                      {i + 1}
+                    </button>
+                  </li>
+                ))}
+                <li className={`page-item ${currentPage === totalPages ? "disabled" : ""}`}>
+                  <button className="page-link" onClick={() => setCurrentPage(currentPage + 1)}>
+                    Next
+                  </button>
+                </li>
+              </ul>
+            </nav>
           </div>
         )}
       </div>
