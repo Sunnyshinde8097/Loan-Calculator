@@ -8,6 +8,7 @@ const LoanCalculator = () => {
   const [tenure, setTenure] = useState("");
   const [emi, setEmi] = useState(null);
   const [totalPayment, setTotalPayment] = useState(null);
+  const [monthlyBreakdown, setMonthlyBreakdown] = useState([]);
 
   const calculateLoan = () => {
     const principal = parseFloat(loanAmount);
@@ -27,6 +28,25 @@ const LoanCalculator = () => {
 
     setEmi(emiValue.toFixed(2));
     setTotalPayment(total.toFixed(2));
+
+    // 🔹 Calculate monthly principal + interest breakdown
+    let balance = principal;
+    let breakdown = [];
+
+    for (let i = 1; i <= months; i++) {
+      const interest = balance * rate;
+      const principalPaid = emiValue - interest;
+      balance -= principalPaid;
+
+      breakdown.push({
+        month: i,
+        principal: principalPaid.toFixed(2),
+        interest: interest.toFixed(2),
+        balance: balance > 0 ? balance.toFixed(2) : "0.00",
+      });
+    }
+
+    setMonthlyBreakdown(breakdown);
   };
 
   return (
@@ -69,13 +89,39 @@ const LoanCalculator = () => {
         </button>
 
         {emi && (
-          <div className="result-box alert alert-info mt-4"><b>
+          <div className="result-box alert alert-info mt-4">
             <p className="mb-1">
               Monthly EMI: <strong>₹{emi}</strong>
             </p>
             <p>
               Total Payment: <strong>₹{totalPayment}</strong>
-            </p></b>
+            </p>
+          </div>
+        )}
+
+        {monthlyBreakdown.length > 0 && (
+          <div className="mt-4">
+            <h4>📊 Monthly Breakdown</h4>
+            <table className="table table-bordered mt-2">
+              <thead>
+                <tr>
+                  <th>Month</th>
+                  <th>Principal Paid (₹)</th>
+                  <th>Interest Paid (₹)</th>
+                  <th>Remaining Balance (₹)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {monthlyBreakdown.map((row) => (
+                  <tr key={row.month}>
+                    <td>{row.month}</td>
+                    <td>{row.principal}</td>
+                    <td>{row.interest}</td>
+                    <td>{row.balance}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
