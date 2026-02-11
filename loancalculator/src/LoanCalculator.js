@@ -1,22 +1,26 @@
 import React, { useState } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "./loancalculator.css";
+import * as XLSX from "xlsx";
+import { saveAs } from "file-saver";
 
 const LoanCalculator = () => {
   const [loanAmount, setLoanAmount] = useState("");
   const [interestRate, setInterestRate] = useState("");
   const [tenure, setTenure] = useState("");
+  const [insurance, setInsurance] = useState("");
   const [emi, setEmi] = useState(null);
   const [totalPayment, setTotalPayment] = useState(null);
   const [monthlyBreakdown, setMonthlyBreakdown] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
 
-  const rowsPerPage = 12; // show 12 months per page
+  const rowsPerPage = 12;
 
   const calculateLoan = () => {
     const principal = parseFloat(loanAmount);
     const rate = parseFloat(interestRate) / 12 / 100;
     const months = parseInt(tenure) * 12;
+    const insuranceValue = parseFloat(insurance) || 0;
 
     if (!principal || !rate || !months) {
       alert("Please enter valid values!");
@@ -27,9 +31,12 @@ const LoanCalculator = () => {
       (principal * rate * Math.pow(1 + rate, months)) /
       (Math.pow(1 + rate, months) - 1);
 
-    const total = emiValue * months;
+    const insurancePerMonth = insuranceValue / months;
+    const emiWithInsurance = emiValue + insurancePerMonth;
 
-    setEmi(emiValue.toFixed(2));
+    const total = emiWithInsurance * months;
+
+    setEmi(emiWithInsurance.toFixed(2));
     setTotalPayment(total.toFixed(2));
 
     let balance = principal;
@@ -41,18 +48,29 @@ const LoanCalculator = () => {
       balance -= principalPaid;
 
       breakdown.push({
-        month: i,
-        principal: principalPaid.toFixed(2),
-        interest: interest.toFixed(2),
-        balance: balance > 0 ? balance.toFixed(2) : "0.00",
+        Month: i,
+        "Principal Paid (₹)": principalPaid.toFixed(2),
+        "Interest Paid (₹)": interest.toFixed(2),
+        "Insurance (₹)": insurancePerMonth.toFixed(2),
+        "Remaining Balance (₹)": balance > 0 ? balance.toFixed(2) : "0.00",
       });
     }
 
     setMonthlyBreakdown(breakdown);
-    setCurrentPage(1); // reset to first page
+    setCurrentPage(1);
   };
 
-  // Pagination logic
+  // Excel export function
+  const exportToExcel = () => {
+    const worksheet = XLSX.utils.json_to_sheet(monthlyBreakdown);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Loan Breakdown");
+
+    const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+    const data = new Blob([excelBuffer], { type: "application/octet-stream" });
+    saveAs(data, "LoanBreakdown.xlsx");
+  };
+
   const indexOfLastRow = currentPage * rowsPerPage;
   const indexOfFirstRow = indexOfLastRow - rowsPerPage;
   const currentRows = monthlyBreakdown.slice(indexOfFirstRow, indexOfLastRow);
@@ -65,40 +83,44 @@ const LoanCalculator = () => {
 
         {/* Inputs */}
         <div className="row mb-3">
-          <div className="col-md-4 mb-2">
+          {/* Loan Amount */}
+          <div className="col-md-3 mb-2">
             <input
               type="text"
               className="form-control"
               placeholder="Loan Amount (₹)"
               value={loanAmount}
-              onChange={(e) => {
-                const value = e.target.value;
-                if (/^\d*$/.test(value)) setLoanAmount(value);
-              }}
+              onChange={(e) => /^\d*$/.test(e.target.value) && setLoanAmount(e.target.value)}
             />
           </div>
-          <div className="col-md-4 mb-2">
+          {/* Interest Rate */}
+          <div className="col-md-3 mb-2">
             <input
               type="text"
               className="form-control"
               placeholder="Interest Rate (%)"
               value={interestRate}
-              onChange={(e) => {
-                const value = e.target.value;
-                if (/^\d*\.?\d*$/.test(value)) setInterestRate(value);
-              }}
+              onChange={(e) => /^\d*\.?\d*$/.test(e.target.value) && setInterestRate(e.target.value)}
             />
           </div>
-          <div className="col-md-4 mb-2">
+          {/* Tenure */}
+          <div className="col-md-3 mb-2">
             <input
               type="text"
               className="form-control"
               placeholder="Tenure (Years)"
               value={tenure}
-              onChange={(e) => {
-                const value = e.target.value;
-                if (/^\d*$/.test(value)) setTenure(value);
-              }}
+              onChange={(e) => /^\d*$/.test(e.target.value) && setTenure(e.target.value)}
+            />
+          </div>
+          {/* Insurance */}
+          <div className="col-md-3 mb-2">
+            <input
+              type="text"
+              className="form-control"
+              placeholder="Insurance Premium (₹)"
+              value={insurance}
+              onChange={(e) => /^\d*\.?\d*$/.test(e.target.value) && setInsurance(e.target.value)}
             />
           </div>
         </div>
@@ -110,12 +132,12 @@ const LoanCalculator = () => {
         {/* Results */}
         {emi && (
           <div className="result-box alert alert-info mt-4">
-            <p className="mb-1">Monthly EMI: <strong>₹{emi}</strong></p>
+            <p className="mb-1">Monthly EMI (incl. Insurance): <strong>₹{emi}</strong></p>
             <p>Total Payment: <strong>₹{totalPayment}</strong></p>
           </div>
         )}
 
-        {/* Breakdown with Pagination */}
+        {/* Breakdown */}
         {monthlyBreakdown.length > 0 && (
           <div className="mt-4">
             <h4>📊 Monthly Breakdown</h4>
@@ -125,22 +147,29 @@ const LoanCalculator = () => {
                   <th>Month</th>
                   <th>Principal Paid (₹)</th>
                   <th>Interest Paid (₹)</th>
+                  <th>Insurance (₹)</th>
                   <th>Remaining Balance (₹)</th>
                 </tr>
               </thead>
               <tbody>
                 {currentRows.map((row) => (
-                  <tr key={row.month}>
-                    <td>{row.month}</td>
-                    <td>{row.principal}</td>
-                    <td>{row.interest}</td>
-                    <td>{row.balance}</td>
+                  <tr key={row.Month}>
+                    <td>{row.Month}</td>
+                    <td>{row["Principal Paid (₹)"]}</td>
+                    <td>{row["Interest Paid (₹)"]}</td>
+                    <td>{row["Insurance (₹)"]}</td>
+                    <td>{row["Remaining Balance (₹)"]}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
 
-            {/* Pagination Controls */}
+            {/* Export Button */}
+            <button className="btn btn-success mb-3" onClick={exportToExcel}>
+              📥 Download Excel
+            </button>
+
+            {/* Pagination */}
             <nav>
               <ul className="pagination justify-content-center">
                 <li className={`page-item ${currentPage === 1 ? "disabled" : ""}`}>
